@@ -1,0 +1,21 @@
+[Unit]
+Description=Good First Issue Finder (Strands / Akamai)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=gfi
+Group=gfi
+WorkingDirectory=/opt/good-first-issues
+EnvironmentFile=/opt/good-first-issues/.env
+ExecStart=/opt/good-first-issues/.venv/bin/uvicorn service.app:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

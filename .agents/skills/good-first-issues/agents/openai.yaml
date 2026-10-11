@@ -1,0 +1,4 @@
+interface:
+  display_name: "Good First Issue Finder"
+  short_description: "Find verified, available GitHub starter issues"
+  default_prompt: "Use $good-first-issues to find beginner-friendly Python agent issues with small scope and active maintainers."
