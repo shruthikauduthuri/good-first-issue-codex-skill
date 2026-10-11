@@ -59,6 +59,69 @@ class FakeGitHub:
         raise AssertionError(path)
 
 
+@pytest.mark.parametrize("failure", ["assigned", "claimed", "inactive", "no_guide"])
+def test_automatic_search_does_not_expose_ineligible_candidates(failure):
+    gh = FakeGitHub()
+    if failure == "assigned":
+        gh.issue["assignees"] = [{"login": "contributor"}]
+    elif failure == "claimed":
+        gh.comments = [{"body": "I will work on this"}]
+    elif failure == "inactive":
+        gh.active = False
+    else:
+        gh.guide = False
+    ledger = Evidence(gh)
+    result = build_tools(ledger, auto_verify=True)[0](query="Python")
+    assert result["candidates"] == []
+    assert result["rejections"]
+
+
+def test_automatic_search_caps_queries():
+    ledger = Evidence(FakeGitHub())
+    search = build_tools(ledger, auto_verify=True)[0]
+    for _ in range(3):
+        search(query="Python")
+    before = ledger.calls
+    assert search(query="Python")["candidates"] == []
+    assert ledger.calls == before
+
+
+def test_good_first_label_is_enforced_in_search_and_fresh_check():
+    gh = FakeGitHub()
+    ledger = Evidence(gh, language="Python", require_good_first=True)
+    ledger.search("unit test", labels=["help wanted"])
+    assert 'label:"good first issue"' in gh.search_query
+    assert "help wanted" not in gh.search_query
+    gh.issue["labels"] = [{"name": "help wanted"}]
+    assert not ledger.check("team/project", 7, fresh=True)["available"]
+
+
+def test_empty_model_selection_returns_verified_related_issue(monkeypatch):
+    from types import SimpleNamespace
+    import service.agent as module
+    gh = FakeGitHub()
+    gh.close = lambda: None
+    monkeypatch.setattr(module, "Agent", lambda **kwargs: lambda message: SimpleNamespace(structured_output=AgentSelection()))
+    cfg = {"GITHUB_TOKEN": "test", "AKAMAI_API_KEY": "test", "base_url": "https://example.com/v1", "model": "test"}
+    response = module.run_find(FindRequest(description="Python async race condition", count=1), config=cfg, github=gh)
+    assert len(response.results) == 1
+    assert response.results[0].match_type == "related"
+    assert "no_open_pr" in response.results[0].checks_passed
+    assert "language:Python" in gh.search_query
+
+
+def test_related_fallback_never_returns_help_wanted_only(monkeypatch):
+    from types import SimpleNamespace
+    import service.agent as module
+    gh = FakeGitHub()
+    gh.close = lambda: None
+    gh.issue["labels"] = [{"name": "help wanted"}]
+    monkeypatch.setattr(module, "Agent", lambda **kwargs: lambda message: SimpleNamespace(structured_output=AgentSelection()))
+    cfg = {"GITHUB_TOKEN": "test", "AKAMAI_API_KEY": "test", "base_url": "https://example.com/v1", "model": "test"}
+    response = module.run_find(FindRequest(description="Python async", count=1), config=cfg, github=gh)
+    assert response.results == []
+
+
 @pytest.fixture
 def evidence():
     e = Evidence(FakeGitHub(), language="Python")

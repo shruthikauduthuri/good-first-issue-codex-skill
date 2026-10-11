@@ -14,6 +14,7 @@ class Pick(BaseModel):
     issue_number: int = Field(gt=0)
     fit_reason: str = Field(min_length=1, max_length=500)
     difficulty: Literal["easy", "medium", "hard"]
+    match_type: Literal["requested", "related"] = "requested"
 
 
 class AgentSelection(BaseModel):
@@ -32,6 +33,7 @@ class IssueResult(BaseModel):
     contributing_notes: str
     verified_at: str
     checks_passed: list[str]
+    match_type: Literal["requested", "related"] = "requested"
 
 
 class Rejection(BaseModel):

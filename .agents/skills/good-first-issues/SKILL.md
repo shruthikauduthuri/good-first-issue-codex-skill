@@ -9,6 +9,9 @@ Send the user's description to the Strands agent service on Akamai Cloud. It sea
 
 ## Run
 
+This skill supports both the Codex GUI and Codex CLI. Both use the same client
+and remote Strands backend; running it in a terminal does not run inference locally.
+
 Use the script relative to this skill's directory, not the current workspace:
 
 ```sh
@@ -24,6 +27,10 @@ When the private config includes `ssh_tunnel`, the client reconnects a stopped l
 If endpoint configuration is missing, read [configuration.md](references/configuration.md). A local config lets a GUI-launched app work without inheriting shell variables. Do not request keys in chat, print them, or commit private configuration. Network access may require the app's normal command approval; never change sandbox settings automatically.
 
 ## Present
+
+When `match_type` is `related`, clearly call it a related alternative and explain
+which preferences may differ. The good first issue label and availability checks
+remain mandatory; never present a broader recommendation as an exact match.
 
 - Show only ranked issues returned successfully by the script. Preserve links exactly. Include difficulty, fit reason, contributor guidance, checks, and verification time.
 - With no results, say **No verified results** and explain reported rejections. Never fill the list with guesses or unverified search hits.

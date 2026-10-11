@@ -181,6 +181,7 @@ def render(data):
         lines.extend([
             f'{i}. [{escape(r["title"])}]({r["issue_url"]}) — {escape(r["repo"])} · {r["difficulty"]}',
             f'   - Fit: {escape(r["fit_reason"])}',
+            f'   - Match: {"Related alternative; preferences may differ" if r.get("match_type") == "related" else "Requested match"}',
             f'   - Availability: {escape(r["availability"])}',
             f'   - Contributing: {escape(r["contributing_notes"])}',
             f'   - Checked at {escape(r["verified_at"])}: {", ".join(sorted(CHECKS))}',

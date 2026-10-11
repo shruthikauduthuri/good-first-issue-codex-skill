@@ -22,9 +22,11 @@ def recent(date, days):
 
 
 class Evidence:
-    def __init__(self, github, language=None):
+    def __init__(self, github, language=None, require_good_first=False):
         self.gh = github
         self.language = language
+        self.require_good_first = require_good_first
+        self.candidate_limit = 40 if require_good_first else 20
         self.candidates = {}
         self.availability = {}
         self.guides = {}
@@ -33,6 +35,7 @@ class Evidence:
         self.rejections = {}
         self.trace = []
         self.calls = 0
+        self.search_calls = 0
 
     def record(self, name, **facts):
         self.calls += 1
@@ -55,11 +58,13 @@ class Evidence:
 
     def search(self, query, language=None, labels=None):
         self.record("search_github_issues")
-        if len(self.candidates) >= 20:
-            return {"candidates": [], "note": "20-candidate budget reached"}
+        if len(self.candidates) >= self.candidate_limit:
+            return {"candidates": [], "note": "Candidate budget reached"}
         # Model supplies keywords/repo qualifiers; hard gates cannot be overridden.
         query = re.sub(r'\b(?:is|state|label|language):(?:"[^"]*"|\S+)', "", query).strip()[:300]
         label_values = [x for x in (labels or ["good first issue", "help wanted"]) if x in {"good first issue", "help wanted"}]
+        if self.require_good_first:
+            label_values = ["good first issue"]
         if not label_values:
             label_values = ["good first issue"]
         clauses = "label:" + ",".join(f'"{x}"' for x in label_values)
@@ -79,7 +84,7 @@ class Evidence:
             repo = item["repository_url"].removeprefix("https://api.github.com/repos/")
             repo_path(repo)
             key = (repo, item["number"])
-            if key not in self.candidates and len(self.candidates) >= 20:
+            if key not in self.candidates and len(self.candidates) >= self.candidate_limit:
                 break
             self.candidates[key] = item
             rows.append({"repo": repo, "issue_number": item["number"], "title": item["title"], "body": (item.get("body") or "")[:1200], "updated_at": item["updated_at"]})
@@ -95,6 +100,8 @@ class Evidence:
             self.candidates[key] = issue
             if issue.get("state") != "open" or "pull_request" in issue or issue.get("locked"):
                 return self.reject(repo, number, "Issue closed, locked, or is a pull request")
+            if self.require_good_first and "good first issue" not in {x.get("name", "").lower() for x in issue.get("labels", [])}:
+                return self.reject(repo, number, "Missing good first issue label")
             if issue.get("assignees"):
                 return self.reject(repo, number, "Issue has an assignee")
             if not recent(issue.get("updated_at"), 180):
@@ -215,11 +222,12 @@ class Evidence:
             level = max([score["difficulty"], pick.difficulty], key=order.get)
             guide_url = guide["guide"]["url"] or guide["guide"]["path"]
             rows.append(IssueResult(repo=pick.repo, issue_url=f"https://github.com/{pick.repo}/issues/{pick.issue_number}", title=issue["title"], difficulty=level, difficulty_reason=score["reason"], availability="Open; no assignee, claim comment, or open PR detected", fit_reason=pick.fit_reason, contributing_notes=f"Guide: {guide_url}; code of conduct: {guide['has_code_of_conduct']}; PR template: {guide['has_pr_template']}", verified_at=self.availability[key]["verified_at"], checks_passed=self.availability[key]["checks_passed"] + ["repo_active", "has_contributor_guide"]))
+            rows[-1].match_type = pick.match_type
         self.gh.remaining()
         return FindResponse(query=request.description, results=rows, rejections=list(self.rejections.values()), trace=self.trace, model=model)
 
 
-def build_tools(evidence, grouped=False):
+def build_tools(evidence, grouped=False, auto_verify=False, count=1):
     @tool
     def search_github_issues(query: str, language: str = "", labels: list[str] | None = None) -> dict:
         """Search up to 20 open beginner issues using short topic keywords or repo qualifiers.
@@ -229,7 +237,40 @@ def build_tools(evidence, grouped=False):
             language: Optional primary programming language.
             labels: good first issue or help wanted; multiple labels are ORed by GitHub.
         """
-        return evidence.search(query, language, labels)
+        if auto_verify:
+            if evidence.search_calls >= 3:
+                return {"candidates": [], "note": "Search budget exhausted. Return verified nominations or an empty results list."}
+            evidence.search_calls += 1
+        result = evidence.search(query, language, labels)
+        if not auto_verify:
+            return result
+        eligible = []
+        # Check low-discussion candidates first; claims are more likely in long threads.
+        candidates = sorted(result["candidates"], key=lambda r: (
+            bool(evidence.candidates[(r["repo"], r["issue_number"])].get("assignees")),
+            evidence.candidates[(r["repo"], r["issue_number"])].get("comments", 0)))
+        for candidate in candidates[:8]:
+            repo, number = candidate["repo"], candidate["issue_number"]
+            if (repo, number) in evidence.rejections:
+                continue
+            if not evidence.check(repo, number)["available"]:
+                continue
+            health = evidence.repo_health(repo)
+            if not health["active"]:
+                evidence.reject(repo, number, "Repository inactive")
+                continue
+            guide = evidence.contributing(repo)
+            if not guide["has_contributor_guide"]:
+                evidence.reject(repo, number, "Missing contributor guide")
+                continue
+            eligible.append({**candidate, "eligible": True,
+                             "difficulty": evidence.difficulty(repo, number),
+                             "health": health})
+            if len(eligible) >= count:
+                break
+        return {"candidates": eligible, "total_found": result.get("total_found", 0),
+                "rejections": [r.model_dump() for r in evidence.rejections.values()],
+                "note": "Only these candidates passed verification. Judge topic fit; nominate or try a different short query."}
 
     @tool
     def check_issue_availability(repo: str, issue_number: int) -> dict:
@@ -291,6 +332,8 @@ def build_tools(evidence, grouped=False):
             rows.append(row)
         return {"candidates": rows}
 
+    if auto_verify:
+        return [search_github_issues]
     if grouped:
         return [search_github_issues, verify_candidates]
     return [search_github_issues, check_issue_availability, read_contributing, score_difficulty, repo_health]

@@ -10,7 +10,31 @@ $good-first-issues Beginner-friendly Python agent frameworks, small bug fixes, a
 
 Use the skill picker if your desktop version uses a different mention shortcut. The client requires Python 3.9+ with no third-party dependencies; the service requires Python 3.11+.
 
-## What is built
+## CLI usage
+
+The existing GUI workflow remains available. For direct terminal use, run from
+this repository (Python 3.9+; no additional client dependencies):
+
+```sh
+python3 scripts/gfi.py --description "Find one easy Python documentation issue" --language Python --count 1
+```
+
+For machine-readable output, add `--json`. To select a private configuration,
+add `--config /absolute/path/to/config.json`. Otherwise the wrapper reuses the
+project config or your existing GUI config under
+`~/.agents/skills/good-first-issues/scripts/config.json`. Environment variables
+`GFI_ENDPOINT` and `GFI_API_KEY` also work. Errors go to stderr with exit status 1;
+a completed search with no verified matches returns status 0 and an empty list.
+
+For Codex CLI, open this repository with `codex` and request
+`$good-first-issues Find one easy Python documentation issue`.
+The repository's `.agents/skills/good-first-issues` supplies the same skill.
+For other workspaces, the existing user installation can be reused.
+
+Both CLI paths call the existing Akamai Linode service. Strands and model
+inference stay in the backend; no AWS Bedrock account or local model is required.
+
+## Architecture
 
 ```text
 Codex desktop → skill / Python client → POST /find on Linode
@@ -26,7 +50,7 @@ Codex desktop → skill / Python client → POST /find on Linode
 
 The model plans searches, chooses candidates, uses tools, and judges fit and difficulty. The server supplies all titles, links, timestamps, and checks from an evidence ledger; fabricated model nominations cannot enter the shortlist.
 
-Two model-facing tools: `search_github_issues` and `verify_candidates`. The latter groups availability, contributor guidance, difficulty and repository health checks for up to four candidates in one backend tool call. The five underlying check functions remain available for tests. The agent searches at most 20 unique candidates. GitHub calls are cached only within a request; final availability checks bypass the cache.
+One model-facing tool, `search_github_issues`, searches and verifies candidates in the backend. It checks up to eight candidates per query, prioritizes candidates with fewer comments, and stops when the requested count passes verification. The model judges topic fit and ranks verified candidates. Three model-directed queries plus at most two backend fallback queries and 40 unique candidates bound the search; the final availability recheck remains fresh. The grouped and individual tools remain available for compatibility tests. No verified match means no match among inspected candidates, not an exhaustive search of GitHub.
 
 Issues are rejected for assignees, claim/work-in-progress comments, open PR references, locked/closed status, or no update in 180 days. Repositories require a contributor guide and a default-branch commit within 90 days. Comments and timeline are paginated up to 500 records each; open PRs up to 300. Reaching a pagination cap rejects the candidate rather than certifying incomplete checks. Availability is a conservative assessment of inspected public data, not a guarantee or reservation. Old claim comments are conservatively rejected even if a later comment releases the issue. Contributor guides currently support common root, `.github`, and `docs` paths; missing guidance yields no nomination.
 
@@ -136,3 +160,7 @@ model turns, verification steps and GitHub request counts.
 
 See [evaluations](evaluations/README.md) for the shared fixed dataset, recorded
 workshop-model baseline and instructions for a real GPT-OSS endpoint comparison.
+
+## Related good first issues
+
+Production searches enforce the exact `good first issue` label, including a fresh label check before returning a recommendation. If no requested match survives, a bounded backend fallback tries a broader topic and then the same language. Language is retained when supplied (Python is also recognized in the description). Related alternatives may relax topic, repository, difficulty and estimated time preferences, but retain all availability, activity and contributor-guide checks. JSON results include `match_type: related`; the terminal renderer and skill instructions disclose broader matches. If every inspected candidate fails mandatory verification, the service still returns no results rather than inventing an available issue.

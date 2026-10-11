@@ -6,16 +6,22 @@ from strands.models.openai import OpenAIModel
 from strands.hooks import HookProvider, BeforeModelCallEvent, BeforeToolCallEvent
 from strands.tools.executors import SequentialToolExecutor
 from .github import GitHub, VerificationError
-from .schemas import AgentSelection
+from .schemas import AgentSelection, Pick
 from .tools import Evidence, build_tools
 
 
 SYSTEM_PROMPT = """You find genuinely available beginner GitHub contribution opportunities.
 Interpret the request into language, topic, and preferred scope. Use short search terms,
-not the entire request as an AND query. Search at most 20 unique candidates.
-Use search_github_issues, then verify_candidates with up to four likely matches.
-verify_candidates performs availability, contributor guidance, difficulty and repository
-health checks together in the backend. Nominate only candidates it marks eligible.
+not the entire request as an AND query. Search at most 20 initial candidates; the backend may inspect up to 40 including related alternatives.
+Use search_github_issues with focused topic keywords. This tool searches and automatically
+performs availability, contributor guidance, difficulty and repository health checks
+in the backend. It returns only eligible candidates. Judge their fit to the user's
+requirements (including stars in health), then nominate matches immediately.
+Only issues with the exact good first issue label are eligible. If a candidate is
+related but misses topic, difficulty, repository or time preferences, set match_type
+to related and explain the difference in fit_reason. Never describe it as an exact match.
+Do not repeat checks or repeat an identical search. If no candidate fits, use a different
+short query. After three queries return the matches found or an empty results list.
 Use at most three search queries and twelve model turns. Return an empty results list
 when candidates are exhausted. Prioritize likely matches to reduce tool calls.
 For every nomination all five checks must have evidence. Drop candidates that are
@@ -65,7 +71,10 @@ def settings():
 def run_find(request, timeout=300, config=None, github=None):
     cfg = config or settings()
     gh = github or GitHub(cfg["GITHUB_TOKEN"], time.monotonic() + timeout)
-    evidence = Evidence(gh, language=request.language)
+    language = request.language
+    if not language and "python" in request.description.lower():
+        language = "Python"
+    evidence = Evidence(gh, language=language, require_good_first=True)
     model = OpenAIModel(
         client_args={"base_url": cfg["base_url"], "api_key": cfg["AKAMAI_API_KEY"], "timeout": min(30, timeout), "max_retries": 0},
         model_id=cfg["model"],
@@ -74,7 +83,7 @@ def run_find(request, timeout=300, config=None, github=None):
     )
     budget = Budget(evidence)
     started = time.monotonic()
-    agent = Agent(model=model, tools=build_tools(evidence, grouped=True), system_prompt=SYSTEM_PROMPT,
+    agent = Agent(model=model, tools=build_tools(evidence, auto_verify=True, count=request.count), system_prompt=SYSTEM_PROMPT,
                   structured_output_model=AgentSelection, callback_handler=None,
                   tool_executor=SequentialToolExecutor(), hooks=[budget], retry_strategy=None)
     try:
@@ -83,6 +92,22 @@ def run_find(request, timeout=300, config=None, github=None):
         if not isinstance(selected, AgentSelection):
             raise VerificationError("Agent did not return validated structured results", "structured_output")
         response = evidence.finalize(selected, request, cfg["model"])
+        if not response.results:
+            # Bounded backend fallback avoids another LLM planning loop. Language
+            # and availability remain mandatory; topic/scope/repository may broaden.
+            evidence.search_calls = 0
+            search = build_tools(evidence, auto_verify=True, count=request.count)[0]
+            description = request.description.lower()
+            topic = next((term for term in ["documentation", "test", "async", "parsing", "validation"] if term in description), "")
+            for query in dict.fromkeys([topic, ""]):
+                candidates = search(query=query, language=language or "")["candidates"]
+                picks = [Pick(repo=r["repo"], issue_number=r["issue_number"],
+                              difficulty=r["difficulty"]["difficulty"], match_type="related",
+                              fit_reason="Related alternative: same language when specified; topic, repository, difficulty and time preferences may differ. Scope is a heuristic estimate.")
+                         for r in candidates]
+                response = evidence.finalize(AgentSelection(results=picks), request, cfg["model"])
+                if response.results:
+                    break
         response.metrics = {"elapsed_seconds": round(time.monotonic()-started, 3), "model_turns": budget.model_calls, "verification_steps": evidence.calls, "github_requests": getattr(gh, "requests", None)}
         return response
     finally:
