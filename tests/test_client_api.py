@@ -122,3 +122,23 @@ def test_api_reports_inference_auth_without_secret(monkeypatch):
         assert r.status_code == 502
         assert "Akamai inference rejected" in r.json()["detail"]
         assert "private-secret" not in r.text
+
+
+def test_long_search_budget_and_deadline_failure(monkeypatch, tmp_path):
+    from service.github import DeadlineExceeded
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"endpoint": "http://localhost:8000/find", "api_key": "local-key", "timeout": 210}))
+    p.chmod(0o600)
+    assert client.load_config(str(p))[2] == 210
+    monkeypatch.setenv("GFI_API_KEY", "shared-test-key")
+    monkeypatch.setenv("GFI_REQUEST_TIMEOUT", "180")
+    budgets = []
+    def expired(req, timeout):
+        budgets.append(timeout)
+        raise DeadlineExceeded("expired")
+    monkeypatch.setattr(api, "run_find", expired)
+    with TestClient(api.app) as http:
+        r = http.post("/find", headers={"X-API-Key": "shared-test-key"}, json={"description": "Python"})
+        assert r.status_code == 504
+        assert "results" not in r.json()
+    assert budgets == [180]

@@ -30,8 +30,8 @@ async def find(request: FindRequest, x_api_key: str = Header(default="")):
     if not hmac.compare_digest(x_api_key.encode(), expected.encode()):
         raise HTTPException(401, "Invalid API key")
     try:
-        timeout = float(os.getenv("GFI_REQUEST_TIMEOUT", "80"))
-        if not 5 <= timeout <= 85:
+        timeout = float(os.getenv("GFI_REQUEST_TIMEOUT", "180"))
+        if not 5 <= timeout <= 240:
             raise ValueError()
     except ValueError:
         raise HTTPException(503, "Invalid server timeout configuration")

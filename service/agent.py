@@ -59,7 +59,7 @@ def settings():
     return config
 
 
-def run_find(request, timeout=80):
+def run_find(request, timeout=180):
     cfg = settings()
     gh = GitHub(cfg["GITHUB_TOKEN"], time.monotonic() + timeout)
     evidence = Evidence(gh, language=request.language)

@@ -58,11 +58,11 @@ def load_config(path=None):
     if any(ord(c) <= 32 or ord(c) == 127 for c in key):
         raise ClientError("The shared API key contains whitespace or control characters.")
     try:
-        timeout = float(conf.get("timeout") or os.getenv("GFI_TIMEOUT", "90"))
-        if not 1 <= timeout <= 120:
+        timeout = float(conf.get("timeout") or os.getenv("GFI_TIMEOUT", "210"))
+        if not 1 <= timeout <= 300:
             raise ValueError()
     except (ValueError, TypeError) as exc:
-        raise ClientError("Timeout must be between 1 and 120 seconds.") from exc
+        raise ClientError("Timeout must be between 1 and 300 seconds.") from exc
     return validate_endpoint(endpoint), key, timeout
 
 
