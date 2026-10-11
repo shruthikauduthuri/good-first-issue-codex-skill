@@ -155,11 +155,12 @@ def fetch(endpoint, key, timeout, description, language, count):
             data = json.loads(raw)
     except HTTPError as exc:
         messages = {401: "Service rejected the shared API key.", 422: "Service rejected the query or filters.", 429: "Service is busy; try again shortly.", 504: "Verification timed out; no results were returned."}
-        if exc.code == 502:
+        if exc.code in {502, 503, 504}:
             try:
                 detail = json.loads(exc.read(2000)).get("detail")
-                if detail == "Akamai inference rejected the configured team API key (HTTP 401)":
-                    messages[502] = "Akamai inference rejected the team API key (HTTP 401). Ask the organizers to confirm the key is active for this endpoint."
+                allowed = {"inference_auth", "inference_rate_limit", "inference_timeout", "inference_connection", "deadline_exceeded", "reasoning_budget", "tool_budget", "github_rate_limit", "github_auth", "github_connection", "configuration", "structured_output", "verification_failed", "upstream_failure"}
+                if isinstance(detail, dict) and detail.get("code") in allowed:
+                    messages[exc.code] = str(detail.get("message", "Request failed"))[:400] + " [" + detail["code"] + "]"
             except (ValueError, AttributeError):
                 pass
         raise ClientError(messages.get(exc.code, f"Service request failed (HTTP {exc.code}). Check service health and configuration.")) from exc

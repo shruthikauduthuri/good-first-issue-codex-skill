@@ -17,7 +17,7 @@ Codex desktop → skill / Python client → POST /find on Linode
                                          ↓
                               Strands Agent / Akamai inference
                                          ↓
-                                five read-only GitHub tools
+                                search + grouped verification tools
                                          ↓
                               evidence validation + final recheck
                                          ↓
@@ -26,7 +26,7 @@ Codex desktop → skill / Python client → POST /find on Linode
 
 The model plans searches, chooses candidates, uses tools, and judges fit and difficulty. The server supplies all titles, links, timestamps, and checks from an evidence ledger; fabricated model nominations cannot enter the shortlist.
 
-Five tools: `search_github_issues`, `check_issue_availability`, `read_contributing`, `score_difficulty`, and `repo_health`. The agent searches at most 20 unique candidates. GitHub calls are cached only within a request; final availability checks bypass the cache.
+Two model-facing tools: `search_github_issues` and `verify_candidates`. The latter groups availability, contributor guidance, difficulty and repository health checks for up to four candidates in one backend tool call. The five underlying check functions remain available for tests. The agent searches at most 20 unique candidates. GitHub calls are cached only within a request; final availability checks bypass the cache.
 
 Issues are rejected for assignees, claim/work-in-progress comments, open PR references, locked/closed status, or no update in 180 days. Repositories require a contributor guide and a default-branch commit within 90 days. Comments and timeline are paginated up to 500 records each; open PRs up to 300. Reaching a pagination cap rejects the candidate rather than certifying incomplete checks. Availability is a conservative assessment of inspected public data, not a guarantee or reservation. Old claim comments are conservatively rejected even if a later comment releases the issue. Contributor guides currently support common root, `.github`, and `docs` paths; missing guidance yields no nomination.
 
@@ -124,3 +124,15 @@ The tests use synthetic GitHub data and local HTTP; they do not claim live issue
 For judges: show the Linode service, run the inference smoke test, invoke the skill in a fresh Codex chat, show a rejection for a claimed/PR-covered issue, then open a returned GitHub issue. Use the client's `--json` option to inspect the complete `trace` with real tool names, decision timestamps, and rejection reasons. If no candidate was rejected in that run, do not fabricate a rejection. The service is read-only and never claims issues or creates PRs.
 
 References: [Strands Python SDK](https://github.com/strands-agents/sdk-python), [Strands quickstart](https://strandsagents.com/docs/user-guide/sdk/quickstart/overview/), [Akamai HackMidwest inference reference](https://github.com/akamai-developers/akamai-workshop-hackmidwest/blob/main/docs/inference.md), [Akamai Linode workshop](https://github.com/akamai-developers/akamai-workshop-hackmidwest/blob/main/docs/03_body.md).
+
+## Error categories and evaluation
+
+`/find` returns safe errors as `detail: {code, message}`. Categories distinguish
+inference authentication, inference throttling (503 with Retry-After), inference
+timeouts, GitHub access failures, overall deadline, reasoning/tool budgets and
+invalid structured output. Wrapped Strands exceptions are unwrapped without
+returning provider exception text. Successful responses include elapsed time,
+model turns, verification steps and GitHub request counts.
+
+See [evaluations](evaluations/README.md) for the shared fixed dataset, recorded
+workshop-model baseline and instructions for a real GPT-OSS endpoint comparison.

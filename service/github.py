@@ -5,7 +5,9 @@ import requests
 
 
 class VerificationError(Exception):
-    pass
+    def __init__(self, message, code="verification_failed"):
+        super().__init__(message)
+        self.code = code
 
 
 class DeadlineExceeded(VerificationError):
@@ -48,13 +50,15 @@ class GitHub:
             if optional and r.status_code == 404:
                 data = None
             elif r.status_code in {403, 429}:
-                raise VerificationError("GitHub denied access or rate limit reached")
+                raise VerificationError("GitHub denied access or rate limit reached", "github_rate_limit")
+            elif r.status_code == 401:
+                raise VerificationError("GitHub rejected token", "github_auth")
             elif r.status_code != 200:
                 raise VerificationError(f"GitHub returned HTTP {r.status_code}")
             else:
                 data = r.json()
         except (requests.RequestException, ValueError) as exc:
-            raise VerificationError("GitHub request failed") from exc
+            raise VerificationError("GitHub request failed", "github_connection") from exc
         self.cache[cache_key] = data
         return data
 

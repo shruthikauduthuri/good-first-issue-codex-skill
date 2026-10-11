@@ -47,3 +47,4 @@ class FindResponse(BaseModel):
     trace: list[dict]
     provider: str = "Akamai hosted inference / Strands Agents"
     model: str
+    metrics: dict = Field(default_factory=dict)

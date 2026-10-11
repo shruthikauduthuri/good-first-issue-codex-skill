@@ -1,0 +1,66 @@
+[
+  {
+    "id": "easy_docs",
+    "prompt": "Find one easy Python documentation issue involving a broken example.",
+    "title": "Fix documentation example",
+    "body": "Update examples.md to correct a typo in the documented Python example.",
+    "difficulty": "easy",
+    "scenario": "eligible"
+  },
+  {
+    "id": "easy_tests",
+    "prompt": "Find one easy Python issue involving a missing unit test.",
+    "title": "Add a missing helper test",
+    "body": "Add a test in test_helper.py for empty input.",
+    "difficulty": "easy",
+    "scenario": "eligible"
+  },
+  {
+    "id": "medium_bug",
+    "prompt": "Find one medium Python bug with clear acceptance criteria.",
+    "title": "Fix parser error handling",
+    "body": "Change parser.py, errors.py and test_parser.py to return a documented error for malformed input.",
+    "difficulty": "medium",
+    "scenario": "eligible"
+  },
+  {
+    "id": "hard_concurrency",
+    "prompt": "Find one hard Python help wanted issue involving async concurrency.",
+    "title": "Fix race condition in async worker",
+    "body": "Resolve a race condition in worker.py and add reproducible concurrent tests.",
+    "difficulty": "hard",
+    "scenario": "eligible"
+  },
+  {
+    "id": "assigned",
+    "prompt": "Find one easy unclaimed Python issue.",
+    "title": "Fix small Python bug",
+    "body": "Update helper.py",
+    "difficulty": "easy",
+    "scenario": "assigned"
+  },
+  {
+    "id": "claimed",
+    "prompt": "Find one easy unclaimed Python issue.",
+    "title": "Fix small Python bug",
+    "body": "Update helper.py",
+    "difficulty": "easy",
+    "scenario": "claimed"
+  },
+  {
+    "id": "inactive",
+    "prompt": "Find one easy Python issue in an active repository.",
+    "title": "Fix small Python bug",
+    "body": "Update helper.py",
+    "difficulty": "easy",
+    "scenario": "inactive"
+  },
+  {
+    "id": "no_guide",
+    "prompt": "Find one easy Python issue with contributor instructions.",
+    "title": "Fix small Python bug",
+    "body": "Update helper.py",
+    "difficulty": "easy",
+    "scenario": "no_guide"
+  }
+]

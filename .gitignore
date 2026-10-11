@@ -10,3 +10,5 @@ dist/
 *.egg-info/
 .local/
 linode-plan-review.jpg
+
+.DS_Store

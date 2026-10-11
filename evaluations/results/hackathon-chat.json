@@ -1,0 +1,103 @@
+{
+  "provider": "hackathon-chat",
+  "model": "hackathon-chat",
+  "dataset": "synthetic-github-v1",
+  "results": [
+    {
+      "id": "easy_docs",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 7.969,
+        "model_turns": 3,
+        "verification_steps": 6,
+        "github_requests": null
+      },
+      "result_count": 1
+    },
+    {
+      "id": "easy_tests",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 6.408,
+        "model_turns": 3,
+        "verification_steps": 6,
+        "github_requests": null
+      },
+      "result_count": 1
+    },
+    {
+      "id": "medium_bug",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 12.631,
+        "model_turns": 3,
+        "verification_steps": 6,
+        "github_requests": null
+      },
+      "result_count": 1
+    },
+    {
+      "id": "hard_concurrency",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 8.14,
+        "model_turns": 3,
+        "verification_steps": 6,
+        "github_requests": null
+      },
+      "result_count": 1
+    },
+    {
+      "id": "assigned",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 10.647,
+        "model_turns": 5,
+        "verification_steps": 5,
+        "github_requests": null
+      },
+      "result_count": 0
+    },
+    {
+      "id": "claimed",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 9.438,
+        "model_turns": 5,
+        "verification_steps": 5,
+        "github_requests": null
+      },
+      "result_count": 0
+    },
+    {
+      "id": "inactive",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 11.978,
+        "model_turns": 5,
+        "verification_steps": 7,
+        "github_requests": null
+      },
+      "result_count": 0
+    },
+    {
+      "id": "no_guide",
+      "status": "success",
+      "passed": true,
+      "metrics": {
+        "elapsed_seconds": 10.107,
+        "model_turns": 5,
+        "verification_steps": 7,
+        "github_requests": null
+      },
+      "result_count": 0
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import threading
 from fastapi import FastAPI, Header, HTTPException
 from openai import AuthenticationError
 from .agent import run_find
+from .errors import classify
 from .github import VerificationError, DeadlineExceeded
 from .schemas import FindRequest, FindResponse
 
@@ -47,13 +48,10 @@ async def find(request: FindRequest, x_api_key: str = Header(default="")):
 
     try:
         return await asyncio.wait_for(asyncio.to_thread(work), timeout=timeout)
-    except (asyncio.TimeoutError, DeadlineExceeded):
-        raise HTTPException(504, "Verification time budget exceeded; no results returned")
-    except AuthenticationError:
-        raise HTTPException(502, "Akamai inference rejected the configured team API key (HTTP 401)")
-    except VerificationError:
-        raise HTTPException(502, "Verification failed; check server configuration and GitHub access")
     except Exception as exc:
-        # Log the class only. Provider exceptions may embed sensitive request data.
-        log.error("Finder failed: %s", type(exc).__name__)
-        raise HTTPException(502, "Agent or upstream service failed; no results returned")
+        if isinstance(exc, asyncio.TimeoutError):
+            exc = DeadlineExceeded("expired")
+        status, code, message = classify(exc)
+        log.warning("Finder failure category=%s", code)
+        raise HTTPException(status, detail={"code": code, "message": message},
+                            headers={"Retry-After": "30"} if code.endswith("rate_limit") else None)

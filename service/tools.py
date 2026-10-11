@@ -38,7 +38,7 @@ class Evidence:
         self.calls += 1
         self.gh.remaining()
         if self.calls > 90:
-            raise VerificationError("Tool budget exceeded")
+            raise VerificationError("Tool budget exceeded", "tool_budget")
         self.trace.append({"tool": name, "at": now().isoformat(), **facts})
 
     def candidate(self, repo, number):
@@ -137,6 +137,8 @@ class Evidence:
         except DeadlineExceeded:
             raise
         except VerificationError as exc:
+            if exc.code.startswith("github_"):
+                raise
             return self.reject(repo, number, str(exc))
 
     def contributing(self, repo):
@@ -217,7 +219,7 @@ class Evidence:
         return FindResponse(query=request.description, results=rows, rejections=list(self.rejections.values()), trace=self.trace, model=model)
 
 
-def build_tools(evidence):
+def build_tools(evidence, grouped=False):
     @tool
     def search_github_issues(query: str, language: str = "", labels: list[str] | None = None) -> dict:
         """Search up to 20 open beginner issues using short topic keywords or repo qualifiers.
@@ -267,4 +269,28 @@ def build_tools(evidence):
         """
         return evidence.repo_health(repo)
 
+    @tool
+    def verify_candidates(candidates: list[dict]) -> dict:
+        """Verify up to four searched candidates together. Each needs repo and issue_number.
+
+        Performs availability, contributing, difficulty and repository health checks.
+        Only eligible candidates may be nominated. Rejected candidates include reasons.
+        """
+        if not 1 <= len(candidates) <= 4:
+            return {"error": "Supply one to four candidates."}
+        rows = []
+        for candidate in candidates:
+            repo, number = candidate.get("repo"), candidate.get("issue_number")
+            available = evidence.check(repo, number)
+            row = {"repo": repo, "issue_number": number, "eligible": False, "availability": available}
+            if available["available"]:
+                row["difficulty"] = evidence.difficulty(repo, number)
+                row["health"] = evidence.repo_health(repo)
+                row["contributing"] = evidence.contributing(repo)
+                row["eligible"] = row["health"]["active"] and row["contributing"]["has_contributor_guide"]
+            rows.append(row)
+        return {"candidates": rows}
+
+    if grouped:
+        return [search_github_issues, verify_candidates]
     return [search_github_issues, check_issue_availability, read_contributing, score_difficulty, repo_health]

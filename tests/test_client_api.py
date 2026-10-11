@@ -120,7 +120,7 @@ def test_api_reports_inference_auth_without_secret(monkeypatch):
     with TestClient(api.app) as http:
         r = http.post("/find", headers={"X-API-Key": "shared-test-key"}, json={"description": "Python"})
         assert r.status_code == 502
-        assert "Akamai inference rejected" in r.json()["detail"]
+        assert r.json()["detail"]["code"] == "inference_auth"
         assert "private-secret" not in r.text
 
 
@@ -153,3 +153,19 @@ def test_search_budget_cannot_exceed_five_minutes(monkeypatch):
     with TestClient(api.app) as http:
         response = http.post("/find", headers={"X-API-Key": "shared-test-key"}, json={"description": "Python"})
         assert response.status_code == 503
+
+
+@pytest.mark.parametrize("kind,expected,status", [("rate", "inference_rate_limit", 503), ("budget", "reasoning_budget", 502), ("deadline", "deadline_exceeded", 504)])
+def test_wrapped_strands_errors_are_categorized(monkeypatch,kind,expected,status):
+    from strands.types.exceptions import EventLoopException, ModelThrottledException
+    from service.github import VerificationError, DeadlineExceeded
+    monkeypatch.setenv("GFI_API_KEY", "shared-test-key")
+    def fail(*args):
+        errors={"rate":ModelThrottledException("private-key"), "budget":VerificationError("private-key","reasoning_budget"), "deadline":DeadlineExceeded("private-key")}
+        raise EventLoopException(errors[kind])
+    monkeypatch.setattr(api,"run_find",fail)
+    with TestClient(api.app) as http:
+        r=http.post("/find",headers={"X-API-Key":"shared-test-key"},json={"description":"Python"})
+        assert r.status_code == status
+        assert r.json()["detail"]["code"] == expected
+        assert "private-key" not in r.text
