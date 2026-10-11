@@ -15,7 +15,7 @@ def main():
         raise SystemExit("A shared key is required.")
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as f:
-        json.dump({"endpoint": endpoint, "api_key": key, "timeout": 210}, f, indent=2)
+        json.dump({"endpoint": endpoint, "api_key": key, "timeout": 330}, f, indent=2)
         f.write("\n")
     print(f"Configuration saved to {path}")
 

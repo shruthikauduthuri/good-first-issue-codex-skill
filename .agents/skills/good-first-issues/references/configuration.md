@@ -3,7 +3,7 @@
 The client reads `scripts/config.json` first, then environment variables for missing values. `--config /absolute/path/config.json` or `GFI_CONFIG` selects a different file.
 
 ```json
-{"endpoint": "https://your-service.example/find", "api_key": "your-shared-service-key", "timeout": 210}
+{"endpoint": "https://your-service.example/find", "api_key": "your-shared-service-key", "timeout": 330}
 ```
 
 Create a private file with a hidden key prompt:

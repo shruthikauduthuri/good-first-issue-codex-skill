@@ -91,9 +91,9 @@ The container uses an unprivileged user and binds only to Linode's loopback. For
 ssh -N -L 8000:127.0.0.1:8000 YOUR_SSH_USER@YOUR_LINODE_IP
 ```
 
-Configure the skill to use `http://127.0.0.1:8000/find`. For a public endpoint, place your existing HTTPS reverse proxy in front of Linode's loopback port and use `https://YOUR_DOMAIN/find`; set its request timeout to at least 210 seconds. Do not expose an unencrypted remote endpoint. The Python client rejects remote HTTP and redirects.
+Configure the skill to use `http://127.0.0.1:8000/find`. For a public endpoint, place your existing HTTPS reverse proxy in front of Linode's loopback port and use `https://YOUR_DOMAIN/find`; set its request timeout to at least 330 seconds. Do not expose an unencrypted remote endpoint. The Python client rejects remote HTTP and redirects.
 
-The project does not provision or purchase cloud resources. Deployment requires your existing host access and server credentials. The server allows 180 seconds by default (configurable from 5–240); the client allows 210 seconds by default (up to 300). Keep the client and reverse-proxy timeouts above the server budget. The original 90-second target remains a performance goal; live searches must be measured because several model turns and GitHub checks can exceed it.
+The project does not provision or purchase cloud resources. Deployment requires your existing host access and server credentials. The server allows a maximum of five minutes: 300 seconds by default (configurable from 5–300); the client allows 330 seconds by default (up to 360). This is the overall search budget, including model decisions and GitHub verification. Individual inference requests retain a 30-second timeout to detect stalled upstream requests. Keep the client and reverse-proxy timeouts above the server budget. The original 90-second target remains a performance goal; live searches must be measured because several model turns and GitHub checks can exceed it.
 
 ## Configure the installed desktop client
 

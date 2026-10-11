@@ -127,11 +127,11 @@ def test_api_reports_inference_auth_without_secret(monkeypatch):
 def test_long_search_budget_and_deadline_failure(monkeypatch, tmp_path):
     from service.github import DeadlineExceeded
     p = tmp_path / "config.json"
-    p.write_text(json.dumps({"endpoint": "http://localhost:8000/find", "api_key": "local-key", "timeout": 210}))
+    p.write_text(json.dumps({"endpoint": "http://localhost:8000/find", "api_key": "local-key", "timeout": 330}))
     p.chmod(0o600)
-    assert client.load_config(str(p))[2] == 210
+    assert client.load_config(str(p))[2] == 330
     monkeypatch.setenv("GFI_API_KEY", "shared-test-key")
-    monkeypatch.setenv("GFI_REQUEST_TIMEOUT", "180")
+    monkeypatch.setenv("GFI_REQUEST_TIMEOUT", "300")
     budgets = []
     def expired(req, timeout):
         budgets.append(timeout)
@@ -141,4 +141,15 @@ def test_long_search_budget_and_deadline_failure(monkeypatch, tmp_path):
         r = http.post("/find", headers={"X-API-Key": "shared-test-key"}, json={"description": "Python"})
         assert r.status_code == 504
         assert "results" not in r.json()
-    assert budgets == [180]
+    assert budgets == [300]
+
+
+def test_search_budget_cannot_exceed_five_minutes(monkeypatch):
+    monkeypatch.setenv("GFI_API_KEY", "shared-test-key")
+    monkeypatch.setenv("GFI_REQUEST_TIMEOUT", "301")
+    def unexpected(*args):
+        pytest.fail("Invalid timeout must be rejected before starting a search")
+    monkeypatch.setattr(api, "run_find", unexpected)
+    with TestClient(api.app) as http:
+        response = http.post("/find", headers={"X-API-Key": "shared-test-key"}, json={"description": "Python"})
+        assert response.status_code == 503
